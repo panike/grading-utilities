@@ -1,0 +1,50 @@
+\newtoks\worksheetno
+\newtoks\datetoks
+\newcount\subprobno
+\newcount\subsubprobno
+\newcount\probno
+\probno1
+\def\prob{\medskip\noindent{\bf Problem \the\probno%
+\global\advance\probno by1 \global\subprobno`\a}\null: }
+\def\internalsubsubprob{%
+\leavevmode\ifvmode
+	\ifnum \subsubprobno=1
+		\medskip
+	\else
+		\smallskip
+	\fi
+\fi}
+\def\internalsubprob{%
+\leavevmode\ifvmode
+	\ifnum \subprobno=`\a
+		\medskip
+	\else
+		\smallskip
+	\fi
+\fi}
+\def\subprob{%
+\ifinner
+	\internalsubprob
+	\char\subprobno: \global\advance\subprobno by1
+\else
+	\internalsubprob
+	\par\noindent\hangindent30pt
+	\hangafter0\hbox to0pt{\hss\char\subprobno:\ }%
+	\global\advance\subprobno by1
+\fi\global\subsubprobno1 \relax}
+%
+%
+%
+\def\subsubprob{%
+\ifinner
+	\internalsubsubprob
+	\the\subsubprobno.\ \global\advance\subsubprobno by1
+\else
+	\internalsubsubprob
+	\par\noindent\hangindent60pt
+	\hangafter0\hbox to0pt{\hss\the\subsubprobno.\ }%
+	\global\advance\subsubprobno by1
+\fi}
+\footline{\hfil}
+\headline{\hbox to0pt{\bf\the\datetoks\hss}\hfil
+\hbox to0pt{\hss\bf Worksheet \the\worksheetno\hss}\hfil}

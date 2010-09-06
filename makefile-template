@@ -1,0 +1,82 @@
+include ./rules.mk
+
+DVITOTXT:=$(shell which dvitotxt)
+TXTTODVI:=$(shell which txttodvi)
+NEWSLETTER:=$(shell which newsletter)
+SBCL:=$(shell which sbcl)
+RM:=$(shell which rm) -f
+SOURCES:=319 319-325.lisp 319-326.lisp 320 320-347.lisp 320-348.lisp \
+	Makefile create_config_file.sh grading-319.lisp grading-320.lisp \
+	logfile rules.mk s08config gradesmac.tex useful_functions useful.vim
+
+GRADES:=grades-319-325.ps grades-319-326.ps grades-320-347.ps grades-320-348.ps
+
+GRADES_DVI:=$(subst ps,dvi,$(GRADES))
+GRADES_TEX:=$(subst ps,tex,$(GRADES))
+
+.INTERMEDIATE: $(GRADES_DVI) $(GRADES_TEX)
+
+grades-%.tex: %.lisp
+	. ./useful_functions; create_grades_file $< 80pt > $@
+
+$(GRADES_DVI): %.dvi: %.tex gradesmac.tex
+	$(TEX) $*
+	rm $*.log
+
+$(GRADES): %.ps: %.dvi
+	$(DVIPS) -q -t landscape $* -o
+
+all: $(GRADES)
+
+gitclean: clean
+	make -C 320 clean
+	make -C 319 clean
+
+#319-325.tex 319-326.tex: %.tex: %.lisp
+#	$(SBCL) --noinform \
+#		--load grading-319.lisp --load $< \
+#		--eval "(setf *use-newsletter* t)" \
+#		--eval "(output-tex *$*-ARR* nil)" --eval "(sb-ext:quit)" > $@
+#
+#320-347.tex 320-348.tex: %.tex: %.lisp
+#	$(SBCL) --noinform \
+#		--load grading-320.lisp --load $< \
+#		--eval "(setf *use-newsletter* t)" \
+#		--eval "(output-tex *$*-ARR* nil)" --eval "(sb-ext:quit)" > $@
+#
+#319-325-1.dvi 319-326-1.dvi 320-347-1.dvi 320-348-1.dvi: %-1.dvi: %.dvi
+#	$(DVITOTXT) -f $< -i 0 > $*.txt
+#	$(NEWSLETTER) -c $*-config -i $*.txt -o $*-1.txt -h 470 -w 643 \
+#		-t ~/tfm_files
+#	$(TXTTODVI) -f $*-1.txt -o $@ -repage
+#
+#319-325-1.ps 319-326-1.ps 320-347-1.ps 320-348-1.ps: %.ps: %.dvi
+#	$(DVIPS) -t landscape $* -o
+
+319-325.tex 319-326.tex: %.tex: %.lisp
+	$(SBCL) --noinform \
+		--load grading-319.lisp --load $< \
+		--eval "(setf *use-newsletter* nil)" \
+		--eval "(output-condensed-tex *$*-ARR* nil)" --eval "(sb-ext:quit)" > $@
+
+320-347.tex 320-348.tex: %.tex: %.lisp
+	$(SBCL) --noinform \
+		--load grading-320.lisp --load $< \
+		--eval "(setf *use-newsletter* nil)" \
+		--eval "(output-condensed-tex *$*-ARR* nil)" --eval "(sb-ext:quit)" > $@
+
+#319-325-1.dvi 319-326-1.dvi 320-347-1.dvi 320-348-1.dvi: %-1.dvi: %.dvi
+#	$(DVITOTXT) -f $< -i 0 > $*.txt
+#	$(NEWSLETTER) -c $*-config -i $*.txt -o $*-1.txt -h 470 -w 643 \
+#		-t ~/tfm_files
+#	$(TXTTODVI) -f $*-1.txt -o $@ -repage
+
+319-325-1.ps 319-326-1.ps 320-347-1.ps 320-348-1.ps: %.ps: %.dvi
+	$(DVIPS) -t landscape $* -o
+
+319-325.ps 319-326.ps 320-347.ps 320-348.ps: %.ps: %.dvi
+	. ./useful_functions; create_report $<
+	$(DVIPS) -t landscape $* -o
+	$(RM) $*.dvi $*.tex $*.log $*.txt
+
+report: 319-325.ps 319-326.ps 320-347.ps 320-348.ps

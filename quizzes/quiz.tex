@@ -1,0 +1,49 @@
+%
+% Set up the fonts.
+%
+\font\tenrm=cmr12 \font\tenbf=cmbx12 \rm
+\font\tensy=cmsy12 \font\ninesy=cmsy9 \font\sevensy=cmsy7
+\textfont2=\tensy \scriptfont2=\ninesy \scriptscriptfont2=\sevensy
+\font\tenex=cmex12 \font\nineex=cmex9 \font\sevenex=cmex7
+\textfont3=\tenex \scriptfont3=\nineex \scriptscriptfont3=\sevenex
+\font\tenmi=cmmi12 \font\ninemi=cmmi9 \font\sevenmi=cmmi7
+\textfont1=\tenmi \scriptfont1=\ninemi \scriptscriptfont1=\sevenmi
+\font\ninerm=cmr9 \font\sevenrm=cmr7
+\textfont0=\tenrm \scriptfont0=\ninerm \scriptscriptfont0=\sevenrm
+%
+% Initialize some registers
+%
+\newcount\quizno \newtoks\dattoks \newtoks\secno \newtoks\classno
+\newcount\probno \probno 1 \parskip 3pt plus 2pt minus 2pt
+%
+% Use a different \headline and \footline
+%
+\headline{\bf\hbox to0pt{\the\classno, \the\secno\hss}\hfil
+Quiz \the\quizno\hfil\hbox to0pt{\hss Date: \the\dattoks}}
+%
+\footline{\hfil}
+%
+% Output the Name line.
+%
+\hbox to\hsize{Name:\hfil}
+%
+% The main macros.
+%
+\def\prob{%
+\ifnum\probno>1
+	\vfil
+\else
+	\smallskip
+\fi % Now we are in vertical mode
+\ifdim\lastskip=0pt
+	\smallskip
+\fi
+\penalty-150
+\ifdim \pagetotal>0pt
+	\smallskip
+\fi
+\noindent{\bf Problem \the\probno}: \advance\probno by1 \relax }
+%
+% The solution macro.
+%
+\def\soln{\bigskip\noindent{\bf Solution}: }

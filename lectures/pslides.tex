@@ -1,0 +1,215 @@
+%
+% Requires epsf to be loaded first!
+%
+\topskip 0pt plus 1fil
+%
+% Define fonts
+%
+%
+% \font\tenrm=cmr12
+% \font\teni=cmmi12
+% \font\tensy=cmsy12
+% \font\tenex=cmex12
+% \font\tenbf=cmbx12
+% \font\tentt=cmtt12
+% \font\tensl=cmsl12
+% \font\tenit=cmti12 \rm
+%
+% \skewchar\teni='177 \skewchar\seveni='177 \skewchar\fivei='177
+% \skewchar\tensy='60 \skewchar\sevensy='60 \skewchar\fivesy='60
+%
+%
+% Define an ``off'' macro
+%
+\def\panoff{%
+    \global\advance\currpanlevel1
+    \special{panike off \the\currpanlevel}%
+    \ifnum\currpanlevel>\maxpanlevel
+        \global\maxpanlevel\currpanlevel
+    \fi
+}
+%
+% Define an ``on'' macro
+%
+\def\panon{%
+    \global\advance\currpanlevel-1
+    \special{panike on}%
+}
+%
+%
+\def\panrestore{%
+    \special{panike restore}%
+}
+%
+% We make a level that we can set.
+%
+\def\setpanlevel#1{%
+    \global\currpanlevel=#1
+    \ifnum\currpanlevel>\maxpanlevel
+        \currpanlevel\maxpanlevel
+        \global\advance\currpanlevel1
+        \maxpanlevel\currpanlevel
+    \fi
+    \ifnum\currpanlevel<0
+        \currpanlevel\maxpanlevel
+    \fi
+}
+%
+% Define some registers
+%
+\newcount\currpanlevel \currpanlevel 0
+\newcount\maxpanlevel \maxpanlevel 0
+\count3=1
+%
+% Formatting
+%
+\hsize4.45in \vsize3.25in \mag2000
+%
+%
+\output{%
+    \setcounters
+    \setbox\holdbox=\box255
+    \outputpages
+    \resetcounters
+}
+%
+%
+\newbox\holdbox
+%
+% Sets up the counters.
+%
+\def\setcounters{%
+    \global\count1 0
+    \global\count2 \maxpanlevel
+    \global\advance\count2 1
+}
+%
+%
+\def\outputpages{%
+    \ifnum\count1<\count2
+        \shipout\vbox{%
+            \heading
+            \copy\holdbox
+            \panrestore
+            \footline
+        }
+        \let\next\outputpages
+        \global\advance\count1 1
+	\global\advance\count3 1
+    \else
+        \let\next\relax
+    \fi
+    \next
+}
+%
+%
+\def\heading{%
+    \vbox to0pt{%
+        \vss\vskip-22pt
+        \hbox to\hsize{\hss\folio}%
+        \vss\hrule
+    }%
+}
+%
+%
+\def\footline{%
+    \hrule
+}
+%
+\newcount\charcount
+%
+\def\folio{%
+    \rm
+%    \charcount `\a
+%    \advance\charcount\count1
+    \the\count3
+%    \ifnum\count2>1
+%        \char\charcount
+%    \fi
+}
+%
+%
+\def\resetcounters{%
+    \global\advance\count0 1
+    \global\count1 0
+    \global\count2 0
+    \global\currpanlevel 0
+    \global\maxpanlevel 0
+}%
+%
+% The eliminator
+%
+\def\paneliminate#1#2{%
+    \special{panike eliminate #1 #2}%
+}%
+%
+% Stop eliminating stuff.
+%
+\def\panstop{%
+    \special{panike stop}%
+}%
+%
+% Replacing text (for epsf)
+%
+\def\panstartreplacement#1{%
+\special{startreplacement #1}}%
+%
+\def\panreplace#1.#2\endreplace{#1.replaceme}
+%
+\def\redefineepsfspecial{%
+\def \epsfspecial ##1{%
+     \epsftmp=10\epsfxsize
+     \divide \epsftmp by \pspoints
+     \ifnum \epsfrsize = 0%
+       \relax %
+	\ifreplacement
+       \special{PSfile=\ifepsfdraft psdraft.ps\else\panreplace##1\endreplace\fi%
+	\space
+		llx=\epsfllx\space
+		lly=\epsflly\space
+		urx=\epsfurx\space
+		ury=\epsfury\space
+		rwi=\number\epsftmp
+		\epsfclipstring
+               }%
+	\else%
+       \special{PSfile=\ifepsfdraft psdraft.ps\else##1\fi\space
+		llx=\epsfllx\space
+		lly=\epsflly\space
+		urx=\epsfurx\space
+		ury=\epsfury\space
+		rwi=\number\epsftmp
+		\epsfclipstring
+       }%
+      \fi
+     \else
+       \epsfrsize=10\epsfysize
+       \divide \epsfrsize by \pspoints
+	\ifreplacement
+       \special{PSfile=\ifepsfdraft psdraft.ps\else\panreplace##1\endreplace
+		\fi\space
+		llx=\epsfllx\space
+		lly=\epsflly\space
+		urx=\epsfurx\space
+		ury=\epsfury\space
+		rwi=\number\epsftmp
+		rhi=\number\epsfrsize
+		\epsfclipstring
+               }%
+	\else
+       \special{PSfile=\ifepsfdraft psdraft.ps\else##1\fi\space
+		llx=\epsfllx\space
+		lly=\epsflly\space
+		urx=\epsfurx\space
+		ury=\epsfury\space
+		rwi=\number\epsftmp
+		rhi=\number\epsfrsize
+		\epsfclipstring
+               }\fi%
+     \fi}}%
+\newif\ifreplacement
+\ifx \epsfrsize \epsfundefined
+\relax %
+\else \redefineepsfspecial
+\fi%
+\replacementfalse

@@ -1,0 +1,258 @@
+# The input here should be the lisp grading file.
+
+get_insert_name () {
+	grep insert-name $1 | \
+	cut -d'"' -f2 | sed = | sed '1~2 s/.\+/{\\bf&}/' | sed 'N;s/\n/ /' | \
+	sed -e 's/.\+/\\insertname{&}/'
+}
+
+get_insert_first_name() {
+	grep insert-name $1 | \
+	cut -d'"' -f2 | \
+	sed 's/\(.\).\+,\(.\+\) .\+/\2/' | \
+	sed 's/\(.\).\+,\(.\+\)/\2/' | \
+	sort | \
+	sed 's/.\+/\\insertname{&}/'
+}
+
+# The inputs here should be the lisp file name and the height of
+# the header entries.
+
+create_grades_file() {
+	cat <<-STARTTEX
+		\input gradesmac
+	STARTTEX
+	/bin/echo -E \\hbox to\\hsize{\\hss
+	/bin/echo -E {\\bf Course}:\\hbox{} $(grep '\*course\*' $1 | cut -d'"' -f2)
+	/bin/echo -E {\\bf Section}:\\hbox{} $(grep '\*section\*' $1 | cut -d'"' -f2)
+	/bin/echo -E {\\bf Semester}:\\hbox{} \
+		$(grep '\*semester\*' $1 | cut -d'"' -f2)
+	/bin/echo -E {\\bf Instructor}:\\hbox{} \
+		$(grep '\*instructor\*' $1 | cut -d'"' -f2)\\hss}\\bigskip
+	cat <<-STARTTEX
+		\begintable{$2}
+	STARTTEX
+	get_insert_name $1
+	cat <<-ENDTEX
+		\endtable
+		\bye
+	ENDTEX
+}
+
+# Input here should be a DVI file produced as follows:
+# sbcl --noinform --load <grading-file> --load <grades-database>
+#   --eval "(setf *use-newsletter* nil)"
+#   --eval "(output-condensed-tex <arrname>)"
+#   --eval "(sb-ext:quit)"
+# See makefile-template for the rule.
+
+create_report() {
+	dvitotxt -f $1 -i 0 | \
+	awk 'BEGIN { i = 0; } \
+		$0 ~ /^89/ { print "^\t"$0; } \
+		$0 !~ /^89/ { print i"\t"$0; ++i; }' | \
+		uniq | cut -f2 - > ${1%.dvi}.txt
+	txttodvi -f ${1%.dvi}.txt -o $1 -repage
+}
+
+# You need to figure out which tree to input here.
+# This script will produce a sorted list of scores.
+# Argument 2 is a regular expression to seek on.  This is
+# so you can do something like sorting the Exam 2 scores.
+# This code assumes that every line has 3 fields, with the
+# numeric field of interest coming last.
+
+produce_sorted_comprehensive() {
+	for i in $(git ls-tree $1 | grep edu | cut -d' ' -f3 | cut -f1)
+	do
+		git cat-file -p $i | \
+		grep "$2" | \
+		sed -e 's/\/.\+//' | \
+		cut -d' ' -f3
+	done | sort -rn | awk 'BEGIN { i=1; } {print i":",$0; i=i+1;}'
+}
+
+# This generates the config file from the lisp files.  This saves
+# some work
+
+create_config_section() {
+	echo "Section ${1%.lisp}";
+	grep insert-name $1 | cut -s -d'"' -f2 | sed -e 's/^/Student /';
+	echo "File `/bin/pwd`/$1";
+}
+
+create_config_file() {
+	for i in $@
+	do
+		create_config_section $i
+	done
+	echo End
+}
+
+# Arguments are tree and branch name (in that order)
+# If the branch exists (ref exists in .refs/heads)
+# then this commit will be a child of it
+# If not, the branch is created.
+
+create_tree_commit() {
+	if test $# -lt 2
+	then
+		echo "Need a tree and a branch name"
+		return 2
+	fi
+
+# Commits can be trivially converted into trees
+# So allow us to use a commit here.
+
+	local tree
+	if test "$(git cat-file -t $1)" == "commit"
+	then
+		tree=$(git show -s --pretty=format:"%T" $1)
+	else
+		tree=$1
+	fi
+
+# Now check to see if we actually have a tree
+
+	if test "$(git cat-file -t ${tree})" != "tree"
+	then
+		echo "$1 is not a tree"
+		return 1
+	fi
+
+# Checks are done; time to commit
+
+	local branch_file_name
+	branch_file_name=$(git rev-parse --show-cdup).git/refs/heads/$2
+	echo "Write a commit message"
+	if test -e ${branch_file_name}
+	then
+		temp=$(git commit-tree ${tree} -p $(cat ${branch_file_name}))
+		echo ${temp} > ${branch_file_name}
+	else
+		git commit-tree ${tree} > ${branch_file_name}
+	fi
+}
+
+clean_up_reports() {
+	egrep -v ' (grade|score):' $1
+}
+
+create_exam_score() {
+cat << EOF
+(defmacro compute-score (s &rest scores)
+   \`(format t "(add-exam (get-302-person \"~A\") ~A 80)~%"
+	,s (+ ,@scores)))
+EOF
+grep insert-name $1 | cut -d'"' -f2 | \
+sed -e 's/.\+/(compute-score "&" )/'
+}
+
+create_stats() {
+cat << EOF
+(dumpit '(
+EOF
+cat
+echo "))"
+}
+
+# First argument: File with scores
+# Second argument: height of graph (in bp)
+# Third argument: width of graph (in bp)
+# Fourth argument: Maximum points on exam
+
+create_curve() {
+cat << EOF
+save width;
+numeric width;
+numeric height;
+numeric height_b;
+
+def set_width(expr len,n) = width*n = len; enddef;
+def set_height(expr ht) = height := ht; height_b:=ht; enddef;
+def set_height_b(expr mmax) = height_b := height / mmax; enddef;
+
+vardef curve_bar(expr score,n) = save p; path p;
+p=((score-1)*width,0)--(score*width,0)--(score*width,n*height_b)
+	--((score-1)*width,n*height_b)--cycle; p enddef;
+
+vardef hash_mark(expr p,q,n,m,len) =
+	save t,b,mid,perp; pair t,b,mid,perp;
+	t+b=2mid=(2n/m)[p,q];
+	perp=unitvector(q-p) rotated90;
+	t-b=2len*perp;
+	t--b enddef;
+EOF
+echo "set_height(${2}pt);"
+echo "set_width(${3}pt,${4});"
+perl -e 'while(<>){chomp;$arr{$_}++;}foreach $key (keys(%arr)){print "$arr{$key} $key\n";}' < $1 | \
+sort -rn | \
+sed -e '1 {h;s/\(.\+\) \(.\+\)/set_height_b(\1);/;P;x;s/\(.\+\) \(.\+\)/fill curve_bar(\2,\1);/;}; 1! s/\(.\+\) \(.\+\)/fill curve_bar(\2,\1);/' | \
+sed -e '/fill/ {s/;/ withcolor(0.7,0.7,0.7);/}'
+
+i=0
+echo "save p; path p;"
+while test $i -le ${4}
+do
+	if test $(($i % 5)) -eq 0
+	then
+		echo "p := hash_mark((0,0),(${3}pt,0),$i,${4},10pt);"
+		echo "draw p;"
+		echo "label.bot(btex $i etex rotated-90,point 1 of p);"
+	else
+		echo "draw hash_mark((0,0),(${3}pt,0),$i,${4},5pt);"
+	fi
+	i=$((i+1))
+
+done
+echo "draw (0,0)--(${3}pt,0);"
+echo "shipout currentpicture;"
+echo "end"
+}
+
+output_txt_curve() {
+sed -e 's/\s//g' | \
+perl -e 'while(<>){chomp;$arr{$_}++;}foreach $key (keys(%arr)) {print "$key $arr{$key}\n";}' | \
+sort -rn | awk 'BEGIN {i=0} {i += $2; print i"\t"$0}'
+}
+
+get_archive_files() {
+	local atag="$(git for-each-ref refs/heads/last-archive | cut -d' ' -f1)"
+	local tree
+	if test "$atag" == ""
+	then
+		tree="4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+	else
+		tree="$(echo $atag):worksheets"
+	fi
+	git diff-tree "$tree" HEAD:worksheets | cut -f2 | \
+	egrep '(Makefile|tex|mp)'
+}
+
+process_lec_quiz() {
+cut $1 -f1,5,6 | \
+sed -e '1 {d}; 1! {s/^\(.\+\) \(.\+\)\t\(.\+\)\t\(.\+\)/\2,\1\t\3 \4/}' | \
+LC_ALL=C sort | \
+sed = | sed 'N;s/\n/\t/'
+}
+
+get_commit_date() {
+	git show --date=raw $1 | \
+	sed -n '/^Date/ {s/Date:\s\+\(.\+\)\s\+.\+/\1/p;q}'
+}
+
+convert_commit_date() {
+	local datenum="$(get_commit_date $1)"
+	local dates=$(date --date=@${datenum} +"%Y-%m-%d-%H-%M")
+	echo "${1}-${dates}"
+}
+
+copy_pdf() {
+	local i
+	for i in $(grep ${1} worksheets/target-prereqs | cut -d':' -f1)
+	do
+		(cd worksheets; make -s $i;
+		echo "Copying $i to copy-to-archive";
+		cp $i ../copy-to-archive/pdf);
+	done
+}
