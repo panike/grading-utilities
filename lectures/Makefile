@@ -1,21 +1,30 @@
 include ../rules.mk
 
-SOURCES:=$(shell ls *.tex *.mp *.gpl) Makefile tfm_files generate-gpl.lisp
+A2PS=$(shell which a2ps)
+MV=$(shell which mv)
+SOURCES:=$(shell ls *.tex *.mp *.gpl 2>/dev/null) Makefile \
+	tfm_files generate-gpl.lisp
 
-PDFS=lecture-20100120.pdf lecture-20100226.pdf
+$(patsubst %.tex,%.dvi,$(wildcard outline-*.tex)): outlinemac.tex
 
-lecture-20100416.dvi: lecture-20100416.1
+$(patsubst %.tex,%.ps,$(wildcard outline-*.tex)): %.ps: %.dvi
+	$(QUIET_DVIPS)$(DVIPS) $* -o
+	$(MV) -f $@ temp.ps
+	$(A2PS) -2 --borders=no	-o $@ temp.ps
+	$(RM) temp.ps
 
-$(PDFS): %.pdf: %.ps
-	$(GS) -dBATCH -dNOPAUSE -dSAFER -sDEVICE=pdfwrite -sOutputFile=$@ $^
+$(patsubst %.tex,%.pdf,$(wildcard outline-*.tex)): %.pdf: %.ps
+	$(PS2PDF) -sOutputFile=$@ $<
+
+lecture-20101120.dvi: lecture-20101120.1
 
 %.ps: %.dvi
-	$(DVITOSLIDES) -i $< -t ./tfm_files -o $<
-	$(DVIPS) -t landscape $* -o
+	$(QUIET_DVITOSLIDES)$(DVITOSLIDES) -i $< -t ./tfm_files -o $<
+	$(QUIET_DVIPS)$(DVIPS) -t landscape $* -o
 
-# lecture-20100120.pdf: %.pdf: %.dvi
-# 	$(DVITOSLIDES) -i $< -t ./tfm_files -o $<
-# 	$(DVIPDFM) -l $*
+lecture-20101013.pdf lecture-20100908.pdf: %.pdf: %.dvi
+	$(DVITOSLIDES) -i $< -t ./tfm_files -o $<
+	$(DVIPDFM) -l $*
 
 clean:
 	$(RM) $(filter-out $(SOURCES),$(shell /bin/ls))

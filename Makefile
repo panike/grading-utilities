@@ -118,7 +118,7 @@ for-wes-archive:
 			else mkdir copy-to-archive && (cd copy-to-archive; mkdir TeX; mkdir pdf); \
 				get_archive_files | while read filename; do \
 					echo "Copying $${filename} to copy-to-archive/"; \
-					cp worksheets/$${filename} copy-to-archive/TeX/$${filename}; \
+					ln worksheets/$${filename} copy-to-archive/TeX/$${filename}; \
 					copy_pdf $${filename}; \
 				done; \
 				git branch -M last-archive $$(convert_commit_date last-archive); \
@@ -128,7 +128,7 @@ for-wes-archive:
 	else mkdir copy-to-archive && (cd copy-to-archive; mkdir TeX; mkdir pdf); \
 		get_archive_files | while read filename; do \
 			echo "Copying $${filename} to copy-to-archive/"; \
-			cp worksheets/$${filename} copy-to-archive/TeX/$${filename}; \
+			ln worksheets/$${filename} copy-to-archive/TeX/$${filename}; \
 			copy_pdf $${filename}; \
 		done; \
 		git branch last-archive HEAD; \
@@ -143,3 +143,6 @@ worksheets.html: grading.lisp
 	else num_worksheets=$(worksheetcount); fi; \
 	sbcl --noinform --load ./grading.lisp \
 	--eval "(create-table $${num_worksheets} $(wscols))" --eval "(sb-ext:quit)" > $@
+
+315.csv: 315.lisp grading.lisp
+	sbcl --noinform --load ./grading.lisp --load ./315.lisp --eval '(dump-csv *315-arr*)' --eval '(sb-ext:quit)' > $@
